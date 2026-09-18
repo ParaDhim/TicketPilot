@@ -1,0 +1,30 @@
+type Ticket {
+    id: ID!
+    createdAt: String!
+    subject: String!
+    body: String!
+    status: String!
+    category: String!
+    urgency: String!
+    riskScore: Int!
+    updatedAt: String!
+}
+
+type Decision {
+    id: ID!
+    ticketId: ID!
+    action: String!
+    confidence: Float!
+    reasoning: String!
+    overriddenByHuman: Boolean!
+    createdAt: String!
+}
+
+type Query {
+    tickets(status: String, category: String): [Ticket!]!
+    decisions(ticketId: ID!): [Decision!]!
+}
+
+type Mutation {
+    overrideDecision(ticketId: ID!, newAction: String!): Decision!
+}

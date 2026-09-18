@@ -1,0 +1,17 @@
+# Binaries
+/server
+/seed
+/metrics
+*.out
+*.exe
+*.o
+
+# Environment
+.env
+
+# MacOS
+.DS_Store
+
+# Go workspaces
+go.work
+go.work.sum
