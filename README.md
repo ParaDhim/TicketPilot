@@ -20,11 +20,11 @@ flowchart TD
 - **Language**: Go 1.22+
 - **API**: GraphQL via `gqlgen`
 - **DB**: Postgres 15 via `pgx` (Running in Docker)
-- **Local LLM**: Ollama natively on macOS
+- **Local LLM**: Ollama natively installed on host (Windows, macOS, or Linux)
 
 ## How to Run
 
-1. Make sure you have Ollama installed natively on your Mac (`brew install ollama`), and start it. Ensure it comes with a capable model (like `llama3:latest`):
+1. Make sure you have Ollama installed natively on your host machine (download from [ollama.com](https://ollama.com) or use your package manager), and start it. Ensure it comes with a capable model (like `llama3:latest`):
    ```bash
    ollama serve
    ollama pull llama3:latest
