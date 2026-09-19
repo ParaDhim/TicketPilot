@@ -2,10 +2,13 @@ package agent
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"strconv"
 	"time"
 
+	"github.com/mark3labs/mcp-go/client"
+	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/parasdhiman/ticketpilot/internal/db"
 	"github.com/parasdhiman/ticketpilot/internal/llm"
 )
@@ -13,6 +16,7 @@ import (
 type Agent struct {
 	DB        *db.DB
 	LLMClient *llm.Client
+	MCPClient *client.Client // newly added MCP client integration
 	Interval  time.Duration
 }
 
@@ -65,19 +69,44 @@ func (a *Agent) processTickets(ctx context.Context) {
 			action = "respond" // Draft reply
 		}
 
-		newStatus := "responded"
-		if action == "escalate" {
-			newStatus = "escalated"
-		} else if action == "close" {
-			newStatus = "closed"
-		}
-
-		confidence := 0.95 // Arbitrary high default confidence for dummy usage
-		err = a.DB.UpdateTicketAndAddDecision(ctx, tid, action, res.Reasoning, confidence, newStatus)
+		// Connect via MCP to perform the action!
+		err = a.callMCPAction(ctx, t.ID, action, res.Reasoning)
 		if err != nil {
-			log.Printf("Error updating ticket decision %s: %v", t.ID, err)
+			log.Printf("Error calling MCP tool for ticket %s: %v", t.ID, err)
 		} else {
-			log.Printf("Ticket %s decided as %s", t.ID, action)
+			log.Printf("Ticket %s decided as %s via MCP", t.ID, action)
 		}
 	}
+}
+
+func (a *Agent) callMCPAction(ctx context.Context, ticketID, action, reasoning string) error {
+	req := mcp.CallToolRequest{}
+
+	args := make(map[string]interface{})
+	args["ticket_id"] = ticketID
+
+	switch action {
+	case "escalate":
+		req.Params.Name = "escalate_ticket"
+		args["reason"] = reasoning
+	case "close":
+		req.Params.Name = "close_ticket"
+		args["note"] = reasoning
+	case "respond":
+		req.Params.Name = "respond_to_ticket"
+		args["reply"] = reasoning
+	default:
+		return fmt.Errorf("unknown action: %s", action)
+	}
+
+	req.Params.Arguments = args
+
+	result, err := a.MCPClient.CallTool(ctx, req)
+	if err != nil {
+		return err
+	}
+	if result.IsError {
+		return fmt.Errorf("MCP Tool Error: %v", result.Content)
+	}
+	return nil
 }

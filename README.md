@@ -11,16 +11,40 @@ A large volume of support tickets can slow down human agents, especially when a 
 ```mermaid
 flowchart TD
     B(Agent Loop) -->|Reads open tickets| A[(Postgres DB)]
-    B -->|Writes decisions| A
     C(GraphQL API) <-->|Reads & Updates| A
     B -->|Analyzes text| D(Ollama: Llama3 8B)
     E[End User] <-->|Queries/Mutations| C
+    B <-->|Tool Calls| F(MCP Server)
+    F -->|Writes decisions| A
+    G[External MCP Client] <-->|HTTP SSE| F
 ```
 
 - **Language**: Go 1.22+
 - **API**: GraphQL via `gqlgen`
+- **MCP**: Model Context Protocol integration via `mark3labs/mcp-go`
 - **DB**: Postgres 15 via `pgx` (Running in Docker)
 - **Local LLM**: Ollama natively installed on host (Windows, macOS, or Linux)
+
+## Model Context Protocol (MCP) Integration
+
+TicketPilot incorporates a **Model Context Protocol (MCP)** server to standardize its action capabilities. By exposing the agent's core decision-making functions (escalating, closing, and responding) as standardized MCP tools, TicketPilot decouples decision formulation from execution, allowing external MCP-compliant agents or tools to securely interface with the ticket system.
+
+### Exposed Tools
+The MCP server exposes the following tools:
+* `get_ticket_status` — Fetches current DB metadata for a given ticket ID (Schema: `{ ticket_id: string }`).
+* `escalate_ticket` — Escalates a ticket to human agents (Schema: `{ ticket_id: string, reason: string }`).
+* `close_ticket` — Closes a ticket as spam/duplicate (Schema: `{ ticket_id: string, note: string }`).
+* `respond_to_ticket` — Drafts an automated reply (Schema: `{ ticket_id: string, reply: string }`).
+* `override_classification` — Manually overrides an action (Schema: `{ ticket_id: string, new_action: string }`).
+
+### How the Agent Connects
+The background Agent runs in the same Go binary as the MCP Server. It connects directly using an **in-process MCP client** (`client.NewInProcessClient`) for zero-latency, reliable tool calling without the overhead of local networking constraints.
+
+### How to Connect Externally
+You can also connect external MCP clients (like AI IDEs or auxiliary agents) to the independently exposed HTTP SSE endpoint:
+```
+http://localhost:8080/mcp/sse
+```
 
 ## How to Run
 
